@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TypeBlitz — Lightning-fast typing practice</title>
+  <meta name="description" content="TypeBlitz is a free typing tutor: timed tests, guided lessons, live stats and a sneaky prank mode.">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/themes.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand" id="brand-home" title="TypeBlitz home">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="2" y="2" width="44" height="44" rx="12" fill="#ffb020"/>
+      <path d="M27 6 L13 27 h9 L21 42 L35 20 h-10 L27 6 Z" fill="#14100a"/>
+    </svg>
+    <span class="brand-name">Type<span class="bolt">Blitz</span></span>
+  </div>
+
+  <nav class="nav-pills" aria-label="Main">
+    <button data-view="practice" class="active">Practice</button>
+    <button data-view="lessons">Lessons</button>
+    <button data-view="stats">Stats</button>
+  </nav>
+
+  <div class="topbar-spacer"></div>
+
+  <div class="topbar-controls">
+    <button class="prank-btn" id="prank-toggle" title="Prank mode: fake a dramatic results sequence after each test">
+      <span class="dot"></span>🎭 Prank
+    </button>
+    <button class="icon-btn" id="sound-toggle" title="Toggle sound effects">🔊</button>
+    <select class="theme-select" id="theme-select" title="Color theme" aria-label="Color theme">
+      <option value="midnight">🌙 Midnight</option>
+      <option value="paper">📄 Paper</option>
+      <option value="forest">🌲 Forest</option>
+      <option value="sunset">🌇 Sunset</option>
+      <option value="ocean">🌊 Ocean</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <!-- ============ PRACTICE ============ -->
+  <section id="view-practice" class="view active">
+    <div class="card config-bar">
+      <div class="seg" id="mode-seg" role="tablist" aria-label="Test mode">
+        <button data-mode="time" class="active">⏱ Time</button>
+        <button data-mode="words">🔤 Words</button>
+      </div>
+      <div class="seg" id="opt-seg" aria-label="Test length"></div>
+      <select class="lang-select" id="lang-select" aria-label="Language">
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+        <option value="es">Español</option>
+        <option value="de">Deutsch</option>
+      </select>
+    </div>
+
+    <div class="card typing-card" id="typing-card">
+      <div class="live-row">
+        <span>wpm <b id="live-wpm">0</b></span>
+        <span>acc <b id="live-acc">100</b></span>
+        <span>time <b id="live-time">60</b></span>
+        <span class="grow"></span>
+        <button class="restart-btn" id="restart-btn" title="Restart test (Tab then Enter)">↻ restart</button>
+      </div>
+      <div class="words" id="words" tabindex="0" aria-label="Typing area. Click and start typing."></div>
+      <div class="caret" id="caret"></div>
+      <input id="hidden-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-hidden="true" tabindex="-1">
+      <div class="shortcut-hint"><kbd>tab</kbd> then <kbd>enter</kbd> — quick restart · click the text and just start typing</div>
+    </div>
+
+    <div class="card" id="keyboard-card">
+      <div class="kb-head">
+        <h3>⌨ On-screen keyboard</h3>
+        <span class="grow"></span>
+        <select class="lang-select" id="layout-select" aria-label="Keyboard layout" style="margin-left:0">
+          <option value="qwerty">QWERTY</option>
+          <option value="azerty">AZERTY</option>
+          <option value="dvorak">DVORAK</option>
+          <option value="colemak">COLEMAK</option>
+        </select>
+        <label class="kb-toggle"><input type="checkbox" id="kb-visible" checked> show</label>
+      </div>
+      <div class="keyboard" id="keyboard"></div>
+    </div>
+
+    <details class="card settings">
+      <summary>Settings</summary>
+      <div class="settings-grid">
+        <div class="setting">
+          <label for="volume-slider">Sound volume</label>
+          <input type="range" id="volume-slider" min="0" max="100" value="70">
+        </div>
+        <div class="setting">
+          <label for="prankster-name">Prankster name (prank mode)</label>
+          <input type="text" id="prankster-name" maxlength="30" placeholder="your best friend">
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ LESSONS ============ -->
+  <section id="view-lessons" class="view">
+    <h2 class="section-title">Typing lessons</h2>
+    <p class="section-sub">Learn touch typing finger by finger. The next key lights up on the keyboard — follow the finger hints.</p>
+    <div class="lesson-grid" id="lesson-grid"></div>
+  </section>
+
+  <!-- ============ LESSON RUNNER ============ -->
+  <section id="view-lesson" class="view">
+    <div class="lesson-run-head">
+      <button class="btn btn-ghost" id="lesson-back">← Lessons</button>
+      <span class="grow"></span>
+      <span class="finger-hint" id="finger-hint">👆</span>
+    </div>
+    <div class="card">
+      <h2 class="section-title" id="lesson-title"></h2>
+      <p class="section-sub" id="lesson-desc"></p>
+      <div class="drill" id="drill"></div>
+      <div class="live-row">
+        <span>accuracy <b id="lesson-acc">100</b></span>
+        <span>progress <b id="lesson-prog">0%</b></span>
+        <span class="grow"></span>
+        <button class="restart-btn" id="lesson-restart" title="Restart lesson">↻ restart</button>
+      </div>
+      <div class="shortcut-hint">Type the highlighted drill text. Mistakes are allowed — finish the line to complete the lesson.</div>
+    </div>
+    <div class="card">
+      <div class="keyboard" id="lesson-keyboard"></div>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section id="view-results" class="view">
+    <div class="card results-hero">
+      <div class="wpm-big" id="res-wpm">0</div>
+      <div class="wpm-label">words per minute</div>
+      <div id="res-best-badge"></div>
+      <div class="stat-grid">
+        <div class="stat-cell"><div class="v" id="res-acc">–</div><div class="k">accuracy</div></div>
+        <div class="stat-cell"><div class="v" id="res-con">–</div><div class="k">consistency</div></div>
+        <div class="stat-cell"><div class="v" id="res-raw">–</div><div class="k">raw wpm</div></div>
+        <div class="stat-cell"><div class="v" id="res-chars">–</div><div class="k">chars ✓/✗</div></div>
+        <div class="stat-cell"><div class="v" id="res-time">–</div><div class="k">time</div></div>
+        <div class="stat-cell"><div class="v" id="res-mode">–</div><div class="k">mode</div></div>
+      </div>
+      <div class="results-actions">
+        <button class="btn btn-primary" id="next-test-btn">Next test →</button>
+        <button class="btn btn-ghost" id="retry-btn">↻ Retry</button>
+      </div>
+    </div>
+    <div class="card chart-wrap">
+      <h3>📊 Recent tests</h3>
+      <canvas class="chart" id="results-chart" width="900" height="150"></canvas>
+    </div>
+  </section>
+
+  <!-- ============ STATS ============ -->
+  <section id="view-stats" class="view">
+    <h2 class="section-title">Your stats</h2>
+    <p class="section-sub">Everything is stored locally in your browser — no account, no cloud.</p>
+    <div class="totals">
+      <div class="total-cell"><div class="v" id="st-tests">0</div><div class="k">tests done</div></div>
+      <div class="total-cell"><div class="v" id="st-time">0m</div><div class="k">time typed</div></div>
+      <div class="total-cell"><div class="v" id="st-avg">0</div><div class="k">avg wpm</div></div>
+      <div class="total-cell"><div class="v" id="st-best">0</div><div class="k">best wpm</div></div>
+    </div>
+    <div class="card chart-wrap">
+      <h3>📊 Last 20 tests</h3>
+      <canvas class="chart" id="stats-chart" width="900" height="150"></canvas>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:12px">🏆 Personal bests</h3>
+      <table class="bests-table">
+        <thead><tr><th>Mode</th><th>Best WPM</th></tr></thead>
+        <tbody id="bests-body"><tr><td colspan="2" style="color:var(--faint)">No tests yet — go type something!</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <button class="btn btn-danger" id="reset-data-btn">🗑 Reset all data</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="faq">
+    <h2>❓ Frequently asked questions</h2>
+    <details>
+      <summary>What is TypeBlitz?</summary>
+      <p>TypeBlitz is a free typing tutor that runs entirely in your browser. Take timed or word-count typing tests, work through guided touch-typing lessons, and watch your speed climb on the stats page.</p>
+    </details>
+    <details>
+      <summary>How is WPM calculated?</summary>
+      <p>We use the standard formula: every 5 correctly typed characters count as one "word". WPM = (correct characters ÷ 5) ÷ minutes. "Raw WPM" uses the same formula but counts every keystroke, mistakes included.</p>
+    </details>
+    <details>
+      <summary>Do I need an account? Where is my data?</summary>
+      <p>No account needed. Your settings, best scores, test history and lesson progress are saved in your browser's local storage only. Nothing is uploaded anywhere — your keystrokes never leave this device.</p>
+    </details>
+    <details>
+      <summary>What is Prank Mode? 🎭</summary>
+      <p>Flip the 🎭 toggle in the header and finish a test: instead of your results you'll get a dramatic fake "analyzing keystrokes… uploading to cloud…" sequence, ending with a GOTCHA message naming your prankster. Perfect for surprising a friend — your real results are always one click away.</p>
+    </details>
+    <details>
+      <summary>Can I use TypeBlitz offline?</summary>
+      <p>Yes, after the first load. The only network request is the Google Fonts stylesheet; everything else (logic, sounds, word lists) is local. The sound effects are synthesized live with the Web Audio API — no audio files to download.</p>
+    </details>
+  </div>
+  <p class="footer-note">⚡ TypeBlitz — type fast, prank faster. Made with vanilla HTML, CSS &amp; JS. No trackers, no sign-up.</p>
+</footer>
+
+<!-- Focus / pause overlay -->
+<div class="overlay focus-overlay" id="focus-overlay">
+  <div class="overlay-card" id="focus-card">
+    <h2>⏸ Paused</h2>
+    <p>You clicked away — the timer stopped. Click anywhere here to jump back in.</p>
+  </div>
+</div>
+
+<!-- Prank overlay -->
+<div class="overlay" id="prank-overlay">
+  <div class="overlay-card" id="prank-card">
+    <div id="prank-fake">
+      <div class="prank-step"><span class="spinner"></span><span id="prank-step-text">Analyzing keystrokes…</span></div>
+      <div class="prank-bar-track"><div class="prank-bar-fill" id="prank-bar"></div></div>
+      <div class="prank-terminal" id="prank-terminal"></div>
+      <div class="prank-skip" id="prank-skip">skip →</div>
+    </div>
+    <div id="prank-reveal" style="display:none">
+      <div class="gotcha">😂</div>
+      <div class="gotcha-title">GOTCHA!</div>
+      <p class="gotcha-sub">You've been pranked by <b id="prank-name-out">your best friend</b>!<br>Your keystrokes are safe — this was all fake.</p>
+      <button class="btn btn-primary" id="prank-real-btn">See my real results →</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/words.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/keyboard.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

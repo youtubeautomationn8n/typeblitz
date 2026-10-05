@@ -1,0 +1,96 @@
+/* TypeBlitz themes — each theme only redefines CSS variables. */
+:root,
+[data-theme="midnight"] {
+  --bg: #0b1220;
+  --bg-soft: #111a2e;
+  --card: #141e33;
+  --card-border: #22304d;
+  --text: #eef3fb;
+  --dim: #8ea0bd;
+  --faint: #5b6b87;
+  --accent: #ffb020;
+  --accent2: #22d3ee;
+  --danger: #f87171;
+  --success: #34d399;
+  --word-dim: #54627e;
+  --key-bg: #1b2740;
+  --key-border: #2b3c5c;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --glow: 0 0 24px rgba(255, 176, 32, 0.35);
+}
+
+[data-theme="paper"] {
+  --bg: #f6f1e7;
+  --bg-soft: #efe7d6;
+  --card: #fffdf8;
+  --card-border: #e3d9c2;
+  --text: #221d12;
+  --dim: #7a6f5c;
+  --faint: #a89a7d;
+  --accent: #d97b00;
+  --accent2: #0e7490;
+  --danger: #dc2626;
+  --success: #15803d;
+  --word-dim: #b3a687;
+  --key-bg: #f1e9d7;
+  --key-border: #d9cba6;
+  --shadow: 0 10px 30px rgba(90, 70, 30, 0.12);
+  --glow: 0 0 24px rgba(217, 123, 0, 0.25);
+}
+
+[data-theme="forest"] {
+  --bg: #0a1510;
+  --bg-soft: #10231a;
+  --card: #12291d;
+  --card-border: #1f4230;
+  --text: #ecf7ef;
+  --dim: #93b3a0;
+  --faint: #5f7d6c;
+  --accent: #ffb020;
+  --accent2: #4ade80;
+  --danger: #f87171;
+  --success: #34d399;
+  --word-dim: #486556;
+  --key-bg: #162e21;
+  --key-border: #274c37;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --glow: 0 0 24px rgba(74, 222, 128, 0.25);
+}
+
+[data-theme="sunset"] {
+  --bg: #1c0f14;
+  --bg-soft: #2a141c;
+  --card: #2e1620;
+  --card-border: #4c2233;
+  --text: #fdeef2;
+  --dim: #c49aa6;
+  --faint: #8a5f6b;
+  --accent: #ffb020;
+  --accent2: #fb7185;
+  --danger: #f87171;
+  --success: #34d399;
+  --word-dim: #6e4450;
+  --key-bg: #351a24;
+  --key-border: #57303f;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --glow: 0 0 24px rgba(251, 113, 133, 0.3);
+}
+
+[data-theme="ocean"] {
+  --bg: #071520;
+  --bg-soft: #0b2233;
+  --card: #0d2436;
+  --card-border: #173c55;
+  --text: #e8f6ff;
+  --dim: #8fb6cc;
+  --faint: #5b7d94;
+  --accent: #ffb020;
+  --accent2: #22d3ee;
+  --danger: #f87171;
+  --success: #34d399;
+  --word-dim: #3d5f76;
+  --key-bg: #10293d;
+  --key-border: #1d4763;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --glow: 0 0 24px rgba(34, 211, 238, 0.3);
+}
