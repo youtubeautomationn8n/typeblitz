@@ -110,7 +110,7 @@
   <!-- ============ LESSONS ============ -->
   <section id="view-lessons" class="view">
     <h2 class="section-title">Typing lessons</h2>
-    <p class="section-sub">Learn touch typing finger by finger. The next key lights up on the keyboard — follow the finger hints.</p>
+    <p class="section-sub">Three phases per lesson: <b>Learn</b> each key one by one, <b>Shuffle</b> them into random order, then type real <b>Words</b>.</p>
     <div class="lesson-grid" id="lesson-grid"></div>
   </section>
 
@@ -124,14 +124,56 @@
     <div class="card">
       <h2 class="section-title" id="lesson-title"></h2>
       <p class="section-sub" id="lesson-desc"></p>
-      <div class="drill" id="drill"></div>
-      <div class="live-row">
-        <span>accuracy <b id="lesson-acc">100</b></span>
-        <span>progress <b id="lesson-prog">0%</b></span>
+      <div class="phase-steps" id="phase-steps">
+        <div class="phase-step" data-phase="learn"><span class="n">1</span> Learn</div>
+        <div class="phase-step" data-phase="shuffle"><span class="n">2</span> Shuffle</div>
+        <div class="phase-step" data-phase="words"><span class="n">3</span> Words</div>
+      </div>
+
+      <div class="phase-pane" id="phase-learn">
+        <div class="learn-dots" id="learn-dots" aria-label="Letter progress"></div>
+        <div class="learn-card" id="learn-card">
+          <div class="learn-letter" id="learn-letter">a</div>
+          <div class="learn-press-dots" id="learn-press-dots"><span></span><span></span><span></span></div>
+          <p class="learn-instr" id="learn-instr"></p>
+          <div class="learn-hands" id="learn-hands"></div>
+        </div>
+      </div>
+
+      <div class="phase-pane" id="phase-shuffle">
+        <div class="tile-row" id="tile-row"></div>
+        <div class="progress-track phase-bar"><div class="progress-fill" id="shuffle-bar"></div></div>
+        <p class="shortcut-hint" style="text-align:center">Type the glowing letter. A wrong key won't advance — press the right one to continue.</p>
+      </div>
+
+      <div class="phase-pane" id="phase-words">
+        <div class="words lesson-words" id="lesson-words"></div>
+        <div class="live-row">
+          <span>accuracy <b id="lesson-acc">100</b></span>
+          <span>words <b id="lesson-word-count">0/24</b></span>
+          <span class="grow"></span>
+        </div>
+        <p class="shortcut-hint">Type each word, then press space. Backspace fixes the current word.</p>
+      </div>
+
+      <div class="phase-pane" id="phase-summary">
+        <div class="summary-box">
+          <div class="summary-emoji">🎉</div>
+          <h3>Lesson complete!</h3>
+          <p class="summary-acc"><b id="summary-acc">100%</b> accuracy</p>
+          <p class="summary-sub" id="summary-sub"></p>
+          <div class="results-actions">
+            <button class="btn btn-primary" id="summary-lessons-btn">← Back to lessons</button>
+            <button class="btn btn-ghost" id="summary-retry-btn">↻ Practice again</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="live-row" style="margin-top:14px">
+        <span>phase <b id="lesson-phase-label">Learn</b></span>
         <span class="grow"></span>
         <button class="restart-btn" id="lesson-restart" title="Restart lesson">↻ restart</button>
       </div>
-      <div class="shortcut-hint">Type the highlighted drill text. Mistakes are allowed — finish the line to complete the lesson.</div>
     </div>
     <div class="card">
       <div class="keyboard" id="lesson-keyboard"></div>
@@ -247,6 +289,7 @@
 <script src="js/stats.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/keyboard.js"></script>
+<script src="js/hands.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

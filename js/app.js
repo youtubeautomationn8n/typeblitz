@@ -309,6 +309,7 @@
   /* ----- input handling ----- */
 
   inputEl.addEventListener('input', function () {
+    if (currentView !== 'practice') { inputEl.value = ''; return; }
     if (!P || P.finished || P.paused) { inputEl.value = ''; return; }
     startTimerIfNeeded();
     var val = inputEl.value;
@@ -353,7 +354,7 @@
   });
 
   inputEl.addEventListener('keydown', function (e) {
-    if (!P || P.finished) return;
+    if (currentView !== 'practice' || !P || P.finished) return;
     if (e.key === 'Backspace') {
       if (inputEl.value === '' && P.wi > 0) {
         e.preventDefault();
@@ -512,146 +513,415 @@
     }
   });
 
-  /* ================= lessons ================= */
+  /* ================= lessons (3-phase: Learn → Shuffle → Words) ================= */
 
-  function drillFromGroups(groups, targetLen) {
-    var out = [];
-    var len = 0;
-    while (len < targetLen) {
-      var g = groups[Math.floor(Math.random() * groups.length)];
-      out.push(g); len += g.length + 1;
-    }
-    return out.join(' ').slice(0, targetLen);
-  }
-
+  // Lessons are defined by PHYSICAL key codes (QWERTY positions). The displayed
+  // character comes from the active layout, but the finger never changes.
   var LESSONS = [
-    { id: 'home', emoji: '🏠', title: 'Home Row', desc: 'The foundation of touch typing: a s d f j k l ;. Keep your fingers anchored here.',
-      drill: function () { return drillFromGroups(['asdf', 'jkl;', 'fdsa', ';lkj', 'as', 'df', 'jk', 'l;', 'a', 's', 'd', 'f', 'j', 'k', 'l', ';', 'sad', 'fad', 'jak', 'ask'], 150); } },
-    { id: 'top', emoji: '⬆️', title: 'Top Row', desc: 'Reach up without looking: q w e r t y u i o p.',
-      drill: function () { return drillFromGroups(['qwer', 'tyui', 'op', 'rewq', 'yuit', 'po', 'qwerty', 'uiop', 'trew', 'yuo', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'], 150); } },
-    { id: 'bottom', emoji: '⬇️', title: 'Bottom Row', desc: 'Reach down with control: z x c v b n m.',
-      drill: function () { return drillFromGroups(['zxcv', 'bnm', 'vcxz', 'mnb', 'zc', 'xv', 'bn', 'zxcvbnm', 'cz', 'vx', 'cb', 'nm', 'z', 'x', 'c', 'v', 'b', 'n', 'm'], 140); } },
-    { id: 'shift', emoji: '⇧', title: 'Shift & Symbols', desc: 'Capitals and symbols. Hold Shift with the opposite hand.',
-      drill: function () {
-        var letters = 'abcdefghijklmnopqrstuvwxyz'.split('').map(function (c) { return c.toUpperCase() + ' ' + c; });
-        var syms = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '{', '}', '|', ':', '"', '<', '>', '?'];
-        var parts = letters.concat(syms.map(function (s) { return s + ' ' + s; }));
-        return drillFromGroups(parts.concat(['Hello', 'World', 'Type', 'Fast']), 160);
-      } },
-    { id: 'numbers', emoji: '🔢', title: 'Numbers Row', desc: 'Digits 1 to 0 without peeking down.',
-      drill: function () { return drillFromGroups(['1234', '5678', '90', '123', '456', '789', '0', '1357', '2468', '909', '1234567890', '42', '777'], 140); } },
-    { id: 'speed', emoji: '⚡', title: 'Speed Builder', desc: 'Real common words at pace. Put every row together.',
-      drill: function () { return sampleWords(TBWords.en, 30).join(' '); } }
+    { id: 'home', emoji: '🏠', title: 'Home Row',
+      desc: 'The foundation of touch typing. Learn each home-row key, then drill it.',
+      codes: ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon'] },
+    { id: 'top', emoji: '⬆️', title: 'Top Row',
+      desc: 'Reach up without looking. One letter at a time, then shuffled.',
+      codes: ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP'] },
+    { id: 'bottom', emoji: '⬇️', title: 'Bottom Row',
+      desc: 'Reach down with control. Slow and accurate beats fast and sloppy.',
+      codes: ['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM', 'Comma', 'Period', 'Slash'] },
+    { id: 'all', emoji: '🌟', title: 'All Letters',
+      desc: 'The capstone: every letter a–z across all three rows.',
+      codes: ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP',
+              'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL',
+              'KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM'] }
   ];
 
+  // Real English words formable from each lesson's QWERTY letter set (phase 3).
+  // Written by hand; every word uses only the lesson's letters.
+  var LESSON_WORDS = {
+    home: ('as ask sad dad all fall falls lass salad salsa alas adds asks dads fad ' +
+           'flask flasks fas').split(' '),
+    top: ('you toy out try type pour rope write route quiet quite quote trout eye pop pup ' +
+          'tot toot tutor rotor tote yet wet pew pit pot put owe top tip tie toe two row ' +
+          'rue rye woe quit quip queue').split(' '),
+    bottom: [],  // no real words use bottom-row letters only — pseudos only
+    all: null    // sampled from the general English list
+  };
+
+  var PHASE_ORDER = ['learn', 'shuffle', 'words'];
+  var PHASE_LABELS = { learn: 'Learn', shuffle: 'Shuffle', words: 'Words' };
+  var LEARN_HITS = 3;      // correct presses required per letter in phase 1
+  var SHUFFLE_ROUND = 12;  // letters per shuffle round
+  var SHUFFLE_ROUNDS = 2;
+  var WORDS_COUNT = 24;    // words to complete phase 3
+
   var L = null; // lesson runner state
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /** Displayed character for a lesson key code under the active layout. */
+  function lessonChar(code) {
+    return TBKeyboard.codeLabel(code, settings.layout) || '?';
+  }
 
   function renderLessonGrid() {
     var grid = $('lesson-grid');
     grid.innerHTML = '';
-    var prog = store.getLessons();
+    var prog = store.getLessons() || {};
     LESSONS.forEach(function (ls) {
-      var p = prog[ls.id] || {};
-      var pct = p.done ? 100 : Math.round(p.best || 0);
+      // Tolerate old/corrupt progress shapes: anything non-object is treated as fresh.
+      var p = (prog[ls.id] && typeof prog[ls.id] === 'object') ? prog[ls.id] : {};
+      var done = !!p.done;
+      var phasesDone = done ? 3 : Math.max(0, Math.min(3, Number(p.phase) || 0));
+      var pct = Math.round(phasesDone / 3 * 100);
+      var metaRight = done ? '<span class="done-badge">✓ DONE</span>'
+        : phasesDone > 0 ? '<span>Phase ' + (phasesDone + 1) + ' of 3 →</span>'
+        : '<span>start →</span>';
       var card = document.createElement('div');
       card.className = 'lesson-card';
       card.innerHTML =
         '<div class="emoji">' + ls.emoji + '</div>' +
         '<h3>' + ls.title + '</h3><p>' + ls.desc + '</p>' +
         '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
-        '<div class="lesson-meta"><span>' + pct + '% best accuracy</span>' +
-        (p.done ? '<span class="done-badge">✓ DONE</span>' : '<span>start →</span>') + '</div>';
+        '<div class="lesson-meta"><span>Learn → Shuffle → Words</span>' + metaRight + '</div>';
       card.addEventListener('click', function () { TBAudio.ui(); startLesson(ls); });
       grid.appendChild(card);
     });
   }
 
+  /* ----- phase state machine ----- */
+
   function startLesson(ls) {
     TBKeyboard.build($('lesson-keyboard'), settings.layout);
     L = {
       lesson: ls,
-      drill: ls.drill(),
-      pos: 0,
-      correct: 0, total: 0,
+      phase: 'learn',
+      learnIdx: 0,
+      learnHits: 0,
+      shuffle: null,
+      words: null,
+      correct: 0,
+      total: 0,
       done: false
     };
     $('lesson-title').textContent = ls.emoji + ' ' + ls.title;
     $('lesson-desc').textContent = ls.desc;
-    $('lesson-acc').textContent = '100';
-    $('lesson-prog').textContent = '0%';
-    renderDrill();
-    updateLessonTarget();
+    enterPhase('learn');
     show('lesson');
     focusInput();
   }
 
-  function renderDrill() {
-    var d = $('drill');
-    d.innerHTML = '';
-    for (var i = 0; i < L.drill.length; i++) {
+  function enterPhase(name) {
+    L.phase = name;
+    var idx = PHASE_ORDER.indexOf(name);
+    var steps = document.querySelectorAll('#phase-steps .phase-step');
+    for (var i = 0; i < steps.length; i++) {
+      var si = PHASE_ORDER.indexOf(steps[i].getAttribute('data-phase'));
+      steps[i].classList.toggle('active', si === idx);
+      steps[i].classList.toggle('done', si < idx);
+    }
+    PHASE_ORDER.concat(['summary']).forEach(function (p) {
+      $('phase-' + p).classList.toggle('active', p === name);
+    });
+    $('lesson-phase-label').textContent = PHASE_LABELS[name] || name;
+    // Persist progress, but never downgrade an already-completed lesson.
+    var prev = (store.getLessons() || {})[L.lesson.id] || {};
+    if (!prev.done) store.setLesson(L.lesson.id, { done: false, best: prev.best || 0, phase: idx + 1 });
+    if (name === 'learn') renderLearn();
+    else if (name === 'shuffle') startShuffle();
+    else if (name === 'words') startWords();
+  }
+
+  /** Re-render the current lesson phase after a layout switch (restarts the phase,
+      since the character set changed). */
+  function refreshLessonForLayout() {
+    if (!L || L.done) return;
+    if (L.phase === 'learn') { L.learnIdx = 0; L.learnHits = 0; renderLearn(); }
+    else if (L.phase === 'shuffle') startShuffle();
+    else if (L.phase === 'words') startWords();
+  }
+
+  /* ----- phase 1: learn ----- */
+
+  function renderLearn() {
+    var codes = L.lesson.codes;
+    var code = codes[L.learnIdx];
+    var ch = lessonChar(code);
+    $('learn-letter').textContent = ch;
+    $('learn-instr').innerHTML = 'Press <b>' + escapeHtml(ch) + '</b> with your <b>' +
+      TBKeyboard.fingerName(code) + '</b>.';
+    var dots = $('learn-dots');
+    dots.innerHTML = '';
+    codes.forEach(function (c, i) {
       var s = document.createElement('span');
-      s.className = 'ch' + (i === L.pos ? ' next' : '') + (i < L.pos ? (L._marks[i] ? ' ok' : ' bad') : '');
-      s.textContent = L.drill[i] === ' ' ? ' ' : L.drill[i];
-      d.appendChild(s);
+      if (i < L.learnIdx) s.className = 'done';
+      else if (i === L.learnIdx) s.className = 'current';
+      dots.appendChild(s);
+    });
+    var pd = $('learn-press-dots');
+    pd.innerHTML = '';
+    for (var i = 0; i < LEARN_HITS; i++) {
+      var d = document.createElement('span');
+      if (i < L.learnHits) d.className = 'hit';
+      pd.appendChild(d);
+    }
+    TBKeyboard.setTarget(code, false);
+    TBHands.render($('learn-hands'), TBKeyboard.fingerOf(code));
+    $('finger-hint').textContent = '👆 ' + TBKeyboard.fingerLabel(code);
+  }
+
+  function learnPress(key) {
+    var code = L.lesson.codes[L.learnIdx];
+    var ch = lessonChar(code);
+    if (key === ch) {
+      L.learnHits++; L.correct++; L.total++;
+      TBAudio.key();
+      if (L.learnHits >= LEARN_HITS) {
+        L.learnIdx++; L.learnHits = 0;
+        if (L.learnIdx >= L.lesson.codes.length) { enterPhase('shuffle'); return; }
+      }
+    } else {
+      L.total++;
+      TBAudio.error();
+      var card = $('learn-card');
+      card.classList.remove('shake');
+      void card.offsetWidth; // restart the shake animation
+      card.classList.add('shake');
+    }
+    renderLearn();
+  }
+
+  /* ----- phase 2: shuffle ----- */
+
+  function startShuffle() {
+    L.shuffle = { round: 0, queue: [], idx: 0 };
+    nextShuffleRound();
+  }
+
+  function nextShuffleRound() {
+    var codes = L.lesson.codes;
+    var q = [];
+    for (var i = 0; i < SHUFFLE_ROUND; i++) {
+      q.push(codes[Math.floor(Math.random() * codes.length)]);
+    }
+    L.shuffle.queue = q;
+    L.shuffle.idx = 0;
+    renderShuffle();
+  }
+
+  function renderShuffle() {
+    var S = L.shuffle;
+    var q = S.queue, idx = S.idx;
+    var row = $('tile-row');
+    row.innerHTML = '';
+    var start = Math.max(0, idx - 1); // keep the last completed tile visible (teal + ✓)
+    var end = Math.min(q.length, start + 7);
+    for (var i = start; i < end; i++) {
+      var t = document.createElement('div');
+      t.className = 'tile' + (i < idx ? ' done' : '') + (i === idx ? ' current' : '');
+      t.textContent = lessonChar(q[i]);
+      row.appendChild(t);
+    }
+    var totalDone = S.round * SHUFFLE_ROUND + idx;
+    $('shuffle-bar').style.width = Math.round(totalDone / (SHUFFLE_ROUND * SHUFFLE_ROUNDS) * 100) + '%';
+    var code = q[idx];
+    if (code) {
+      TBKeyboard.setTarget(code, false);
+      $('finger-hint').textContent = '👆 ' + TBKeyboard.fingerLabel(code);
+    } else {
+      TBKeyboard.clearTarget();
     }
   }
 
-  function updateLessonTarget() {
-    if (!L || L.done) return;
-    var ch = L.drill[L.pos];
+  function shufflePress(key) {
+    var S = L.shuffle;
+    var code = S.queue[S.idx];
+    var ch = lessonChar(code);
+    L.total++;
+    if (key === ch) {
+      L.correct++;
+      TBAudio.key();
+      S.idx++;
+      if (S.idx >= S.queue.length) {
+        S.round++;
+        if (S.round >= SHUFFLE_ROUNDS) { enterPhase('words'); return; }
+        nextShuffleRound();
+        return;
+      }
+      renderShuffle();
+    } else {
+      TBAudio.error();
+      var cur = row_queryCurrent();
+      if (cur) {
+        cur.classList.remove('bad');
+        void cur.offsetWidth;
+        cur.classList.add('bad');
+      }
+    }
+  }
+
+  function row_queryCurrent() {
+    return document.querySelector('#tile-row .tile.current');
+  }
+
+  /* ----- phase 3: words ----- */
+
+  function pseudoWord(set, minLen, maxLen) {
+    var len = minLen + Math.floor(Math.random() * (maxLen - minLen + 1));
+    var w = '';
+    for (var i = 0; i < len; i++) w += set[Math.floor(Math.random() * set.length)];
+    return w;
+  }
+
+  function buildLessonWords() {
+    var set = L.lesson.codes.map(lessonChar);
+    var real = [];
+    if (settings.layout === 'qwerty') {
+      if (L.lesson.id === 'all') {
+        real = (TBWords.en || []).filter(function (w) { return /^[a-z]{2,8}$/.test(w); });
+      } else {
+        real = LESSON_WORDS[L.lesson.id] || [];
+      }
+    }
+    var words = [];
+    var guard = 0;
+    while (words.length < WORDS_COUNT && guard++ < WORDS_COUNT * 20) {
+      if (real.length && Math.random() < 0.4) {
+        words.push(real[Math.floor(Math.random() * real.length)]);
+      } else {
+        words.push(pseudoWord(set, 2, 5));
+      }
+    }
+    return words;
+  }
+
+  function startWords() {
+    L.words = { words: buildLessonWords(), typed: [], wi: 0 };
+    $('lesson-acc').textContent = '100';
+    renderLessonWords();
+    updateWordsTarget();
+  }
+
+  function renderLessonWords() {
+    var W = L.words;
+    var box = $('lesson-words');
+    box.innerHTML = '';
+    W.words.forEach(function (w, i) {
+      var d = document.createElement('div');
+      d.className = 'word' + (i === W.wi ? ' current' : '');
+      var typed = W.typed[i] || '';
+      for (var c = 0; c < w.length; c++) {
+        var s = document.createElement('span');
+        s.className = 'ch';
+        if (c < typed.length) s.classList.add(typed[c] === w[c] ? 'ok' : 'bad');
+        s.textContent = w[c];
+        d.appendChild(s);
+      }
+      box.appendChild(d);
+    });
+    $('lesson-word-count').textContent = W.wi + '/' + W.words.length;
+  }
+
+  function updateWordsTarget() {
+    var W = L.words;
+    if (!W || W.wi >= W.words.length) { TBKeyboard.clearTarget(); return; }
+    var target = W.words[W.wi];
+    var typed = W.typed[W.wi] || '';
+    var ch = target[typed.length];
+    if (!ch) { TBKeyboard.clearTarget(); return; }
     var res = TBKeyboard.charToCode(ch, settings.layout);
     if (res) {
       TBKeyboard.setTarget(res.code, res.shift);
       $('finger-hint').textContent = '👆 ' + TBKeyboard.fingerLabel(res.code) + (res.shift ? ' + Shift' : '');
     } else {
       TBKeyboard.clearTarget();
-      $('finger-hint').textContent = '👆 type "' + ch + '"';
     }
-    $('lesson-prog').textContent = Math.round((L.pos / L.drill.length) * 100) + '%';
+  }
+
+  function wordsPress(key) {
+    var W = L.words;
+    if (!W || W.wi >= W.words.length) return;
+    var target = W.words[W.wi];
+    var typed = W.typed[W.wi] || '';
+    if (key === ' ') {
+      if (typed === target) {
+        W.wi++;
+        if (W.wi >= W.words.length) { completeLesson(); return; }
+        renderLessonWords();
+      } else {
+        TBAudio.error();
+      }
+      updateWordsTarget();
+      return;
+    }
+    L.total++;
+    if (typed.length < target.length && key === target[typed.length]) {
+      L.correct++;
+      W.typed[W.wi] = typed + key;
+      TBAudio.key();
+    } else {
+      // Record the wrong char so it shows red; backspace to fix it.
+      W.typed[W.wi] = typed + key;
+      TBAudio.error();
+    }
+    $('lesson-acc').textContent = TBStats.calcAccuracy(L.correct, L.total);
+    renderLessonWords();
+    updateWordsTarget();
+  }
+
+  function wordsBackspace() {
+    var W = L.words;
+    if (!W || W.wi >= W.words.length) return;
+    var typed = W.typed[W.wi] || '';
+    if (typed.length > 0) {
+      W.typed[W.wi] = typed.slice(0, -1);
+      renderLessonWords();
+      updateWordsTarget();
+    }
+  }
+
+  /* ----- completion ----- */
+
+  function completeLesson() {
+    L.done = true;
+    var acc = TBStats.calcAccuracy(L.correct, L.total);
+    var prev = (store.getLessons() || {})[L.lesson.id] || {};
+    var best = Math.max(Number(prev.best) || 0, acc);
+    store.setLesson(L.lesson.id, { done: true, best: Math.round(best * 10) / 10, phase: 3 });
+    TBKeyboard.clearTarget();
+    TBAudio.complete();
+    PHASE_ORDER.forEach(function (p) { $('phase-' + p).classList.remove('active'); });
+    $('phase-summary').classList.add('active');
+    var steps = document.querySelectorAll('#phase-steps .phase-step');
+    for (var i = 0; i < steps.length; i++) {
+      steps[i].classList.remove('active');
+      steps[i].classList.add('done');
+    }
+    $('lesson-phase-label').textContent = 'Complete';
+    $('summary-acc').textContent = acc + '%';
+    $('summary-sub').textContent = 'You finished Learn, Shuffle and Words for ' + L.lesson.title + '.';
+    $('finger-hint').textContent = '🎉 Nice typing!';
   }
 
   document.addEventListener('keydown', function (e) {
     if (currentView !== 'lesson' || !L || L.done) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Tab') { e.preventDefault(); return; }
     if (e.key === 'Backspace') {
       e.preventDefault();
-      if (L.pos > 0) {
-        L.pos--;
-        L._marks[L.pos] = null;
-        renderDrill(); updateLessonTarget();
-      }
+      if (L.phase === 'words') wordsBackspace();
       return;
     }
     if (e.key.length !== 1) return;
-    if (e.key === 'Tab') e.preventDefault();
-    L._marks = L._marks || {};
-    var expected = L.drill[L.pos];
-    L.total++;
-    if (e.key === expected) { L.correct++; L._marks[L.pos] = true; TBAudio.key(); }
-    else { L._marks[L.pos] = false; TBAudio.error(); }
-    L.pos++;
-    $('lesson-acc').textContent = TBStats.calcAccuracy(L.correct, L.total);
-    if (L.pos >= L.drill.length) {
-      completeLesson();
-    } else {
-      renderDrill(); updateLessonTarget();
-    }
+    if (L.phase === 'learn') learnPress(e.key);
+    else if (L.phase === 'shuffle') shufflePress(e.key);
+    else if (L.phase === 'words') wordsPress(e.key);
   });
-
-  function completeLesson() {
-    L.done = true;
-    var acc = TBStats.calcAccuracy(L.correct, L.total);
-    var prev = store.getLessons()[L.lesson.id] || {};
-    var best = Math.max(prev.best || 0, acc);
-    store.setLesson(L.lesson.id, { done: true, best: Math.round(best * 10) / 10 });
-    TBKeyboard.clearTarget();
-    $('finger-hint').textContent = '🎉 Lesson complete — ' + acc + '% accuracy!';
-    $('lesson-prog').textContent = '100%';
-    TBAudio.complete();
-  }
 
   $('lesson-back').addEventListener('click', function () { TBAudio.ui(); show('lessons'); });
   $('lesson-restart').addEventListener('click', function () { TBAudio.ui(); startLesson(L.lesson); });
+  $('summary-lessons-btn').addEventListener('click', function () { TBAudio.ui(); show('lessons'); });
+  $('summary-retry-btn').addEventListener('click', function () { TBAudio.ui(); startLesson(L.lesson); });
 
   /* ================= on-screen keyboard (practice) ================= */
 
@@ -664,7 +934,7 @@
     store.updateSettings({ layout: settings.layout });
     TBAudio.ui();
     buildPracticeKeyboard();
-    if (L && currentView === 'lesson') { TBKeyboard.build($('lesson-keyboard'), settings.layout); updateLessonTarget(); }
+    if (L && currentView === 'lesson') { TBKeyboard.build($('lesson-keyboard'), settings.layout); refreshLessonForLayout(); }
   });
 
   $('kb-visible').addEventListener('change', function (e) {

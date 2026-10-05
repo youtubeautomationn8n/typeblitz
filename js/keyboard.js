@@ -43,6 +43,13 @@
     rring: 'Right ring finger', rpinky: 'Right pinky', thumb: 'Thumb'
   };
 
+  // Full "X finger" names for instruction lines ("Press a with your left pinky finger").
+  var FINGER_NAMES = {
+    lpinky: 'left pinky finger', lring: 'left ring finger', lmiddle: 'left middle finger',
+    lindex: 'left index finger', rindex: 'right index finger', rmiddle: 'right middle finger',
+    rring: 'right ring finger', rpinky: 'right pinky finger', thumb: 'thumb'
+  };
+
   var QW = {
     Backquote: '`', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4', Digit5: '5',
     Digit6: '6', Digit7: '7', Digit8: '8', Digit9: '9', Digit0: '0', Minus: '-', Equal: '=',
@@ -110,6 +117,16 @@
   function fingerOf(code) { return FINGERS[code] || 'thumb'; }
 
   function fingerLabel(code) { return FINGER_LABELS[fingerOf(code)] || ''; }
+
+  /** Full finger name for instruction lines, e.g. "left pinky finger". */
+  function fingerName(code) { return FINGER_NAMES[fingerOf(code)] || 'thumb'; }
+
+  /** Displayed label for a physical key code under a layout (null for non-printable keys). */
+  function codeLabel(code, layout) {
+    if (PRETTY[code]) return null;
+    var labels = LABELS[layout] || LABELS.qwerty;
+    return labels[code] || null;
+  }
 
   /** Resolve a character to { code, shift } for the given layout. */
   function charToCode(ch, layout) {
@@ -192,6 +209,8 @@
     charToCode: charToCode,
     fingerOf: fingerOf,
     fingerLabel: fingerLabel,
+    fingerName: fingerName,
+    codeLabel: codeLabel,
     layouts: ['qwerty', 'azerty', 'dvorak', 'colemak']
   };
 })();
